@@ -46,9 +46,9 @@ $themes: (
 }
 
 :root {
-  --pf-radius: 12px;
-  --pf-radius-sm: 8px;
-  --pf-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --pf-radius: 10px;
+  --pf-radius-sm: 7px;
+  --pf-font: "Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 * {
@@ -64,9 +64,13 @@ body {
 
 body {
   font-family: var(--pf-font);
+  font-size: 15px;
+  line-height: 1.45;
+  letter-spacing: -0.006em;
   background: var(--pf-bg);
   color: var(--pf-text);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   transition: background 0.2s ease, color 0.2s ease;
 }
 

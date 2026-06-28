@@ -7,6 +7,7 @@ import { verifyToken } from "../domain/gist";
 import { pushToGist, pullFromGist } from "../domain/sync";
 
 type Status = { kind: "ok" | "err"; text: string } | null;
+type Theme = "light" | "dark";
 
 @customElement("pf-settings-page")
 export class SettingsPage extends LitElement {
@@ -24,6 +25,7 @@ export class SettingsPage extends LitElement {
         border-radius: var(--pf-radius);
         padding: 1.2rem;
         margin-bottom: 1rem;
+        box-shadow: 0 1px 2px var(--pf-shadow);
       }
       h3 {
         margin: 0 0 0.3rem;
@@ -77,8 +79,35 @@ export class SettingsPage extends LitElement {
       input[type="file"] {
         display: none;
       }
+      .seg {
+        display: inline-flex;
+        gap: 0.2rem;
+        padding: 0.2rem;
+        background: var(--pf-surface-2);
+        border: 1px solid var(--pf-border);
+        border-radius: 999px;
+      }
+      .seg button {
+        border: none;
+        background: transparent;
+        border-radius: 999px;
+        padding: 0.4rem 0.9rem;
+        color: var(--pf-text-muted);
+        font-weight: 500;
+      }
+      .seg button:hover {
+        background: transparent;
+        color: var(--pf-text);
+      }
+      .seg button.on {
+        background: var(--pf-surface);
+        color: var(--pf-text);
+        box-shadow: 0 1px 2px var(--pf-shadow);
+      }
     `,
   ];
+
+  @state() private theme: Theme = currentTheme();
 
   @state() private token = "";
   @state() private gistId?: string;
@@ -96,6 +125,12 @@ export class SettingsPage extends LitElement {
     const s = await getSettings();
     this.token = s.githubToken ?? "";
     this.gistId = s.gistId;
+  }
+
+  private setTheme(theme: Theme): void {
+    this.theme = theme;
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("pf-theme", theme);
   }
 
   // ---- file export / import ----
@@ -197,6 +232,25 @@ export class SettingsPage extends LitElement {
       </div>
 
       <div class="card">
+        <h3>Appearance</h3>
+        <p class="sub">Choose how Finance Lite looks on this device.</p>
+        <div class="seg" role="group" aria-label="Theme">
+          <button
+            class=${this.theme === "light" ? "on" : ""}
+            @click=${() => this.setTheme("light")}
+          >
+            ☀️ Light
+          </button>
+          <button
+            class=${this.theme === "dark" ? "on" : ""}
+            @click=${() => this.setTheme("dark")}
+          >
+            🌙 Dark
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
         <h3>Backup file</h3>
         <p class="sub">
           Download all your data as a JSON file, or restore from one. No account needed.
@@ -267,6 +321,10 @@ export class SettingsPage extends LitElement {
   private get fileInput(): HTMLInputElement {
     return this.renderRoot.querySelector("#file") as HTMLInputElement;
   }
+}
+
+function currentTheme(): Theme {
+  return document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
 }
 
 function errMsg(e: unknown): string {

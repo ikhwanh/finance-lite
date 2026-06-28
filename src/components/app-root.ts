@@ -15,7 +15,6 @@ import "./settings-page";
 import "./price-page";
 import "./scenario-page";
 
-type Theme = "light" | "dark";
 type View =
   | { mode: "list" }
   | { mode: "edit"; record: CycleWithCosts | null }
@@ -34,20 +33,59 @@ export class AppRoot extends LitElement {
       header {
         display: flex;
         align-items: center;
-        gap: 0.8rem;
-        padding: 0.8rem 1.1rem;
-        background: var(--pf-surface);
+        gap: 0.4rem;
+        padding: 0 0.6rem;
+        background: color-mix(in srgb, var(--pf-surface) 80%, transparent);
+        backdrop-filter: saturate(1.2) blur(8px);
         border-bottom: 1px solid var(--pf-border);
         position: sticky;
         top: 0;
         z-index: 10;
       }
-      .brand {
-        font-weight: 700;
-        font-size: 1.1rem;
+      nav {
+        display: flex;
+        align-items: stretch;
+        gap: 0.1rem;
+        flex: 1;
+        overflow-x: auto;
+        scrollbar-width: none;
       }
-      .brand .ico {
+      nav::-webkit-scrollbar {
+        display: none;
+      }
+      .tab {
+        appearance: none;
+        border: none;
+        background: transparent;
+        color: var(--pf-text-muted);
+        font: inherit;
+        font-weight: 500;
+        font-size: 0.92rem;
+        white-space: nowrap;
+        padding: 0.95rem 0.85rem;
+        border-bottom: 2px solid transparent;
+        border-radius: 0;
+        cursor: pointer;
+        transition: color 0.15s ease, border-color 0.15s ease;
+      }
+      .tab:hover {
+        color: var(--pf-text);
+        background: transparent;
+        border-color: transparent;
+      }
+      .tab.active {
         color: var(--pf-primary);
+        border-bottom-color: var(--pf-primary);
+      }
+      .icon-btn {
+        flex: 0 0 auto;
+        width: 2.2rem;
+        height: 2.2rem;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        font-size: 1.05rem;
+        border-radius: 999px;
       }
       .spacer {
         flex: 1;
@@ -55,35 +93,41 @@ export class AppRoot extends LitElement {
       main {
         max-width: 1100px;
         margin: 0 auto;
-        padding: 1.2rem 1rem 3rem;
+        padding: 1.4rem 1rem 3rem;
       }
       .toolbar {
         display: flex;
         align-items: center;
-        margin-bottom: 1rem;
+        margin-bottom: 1.1rem;
       }
       .toolbar h2 {
         margin: 0;
-        font-size: 1.15rem;
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: -0.01em;
       }
       .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 0.9rem;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 0.8rem;
       }
       .cyc {
         text-align: left;
         background: var(--pf-surface);
         border: 1px solid var(--pf-border);
         border-radius: var(--pf-radius);
-        padding: 1rem 1.1rem;
+        padding: 1rem 1.05rem;
         cursor: pointer;
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: 0.45rem;
+        box-shadow: 0 1px 2px var(--pf-shadow);
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
       }
       .cyc:hover {
         border-color: var(--pf-primary);
+        box-shadow: 0 6px 16px var(--pf-shadow);
+        transform: translateY(-2px);
       }
       .cyc .top {
         display: flex;
@@ -112,6 +156,7 @@ export class AppRoot extends LitElement {
         justify-content: space-between;
         font-size: 0.85rem;
         margin-top: 0.3rem;
+        font-variant-numeric: tabular-nums;
       }
       .nums .k {
         color: var(--pf-text-muted);
@@ -129,10 +174,38 @@ export class AppRoot extends LitElement {
         padding: 3rem 1rem;
         color: var(--pf-text-muted);
       }
+      footer {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 1.4rem 1rem 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        font-size: 0.8rem;
+        color: var(--pf-text-muted);
+      }
+      footer a {
+        color: var(--pf-text-muted);
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+      }
+      footer a:hover {
+        color: var(--pf-primary);
+      }
+      footer svg {
+        width: 1rem;
+        height: 1rem;
+        fill: currentColor;
+      }
+      footer .sep {
+        opacity: 0.5;
+      }
     `,
   ];
 
-  @state() private theme: Theme = currentTheme();
   @state() private view: View = { mode: "list" };
   @state() private cycles: CycleWithCosts[] = [];
   @state() private crops: Crop[] = [];
@@ -150,12 +223,6 @@ export class AppRoot extends LitElement {
 
   private cropName(cropId: number): string {
     return this.crops.find((c) => c.id === cropId)?.name ?? "Crop";
-  }
-
-  private toggleTheme(): void {
-    this.theme = this.theme === "light" ? "dark" : "light";
-    document.documentElement.setAttribute("data-theme", this.theme);
-    localStorage.setItem("pf-theme", this.theme);
   }
 
   private openNew(): void {
@@ -182,36 +249,56 @@ export class AppRoot extends LitElement {
   }
 
   override render() {
+    const m = this.view.mode;
+    const cyclesActive = m === "list" || m === "edit";
     return html`
       <header>
-        <span class="brand"><span class="ico">🌾</span> Finance Lite</span>
-        <span class="spacer"></span>
+        <nav>
+          <button
+            class="tab ${cyclesActive ? "active" : ""}"
+            @click=${() => (this.view = { mode: "list" })}
+          >
+            Crop cycles
+          </button>
+          <button
+            class="tab ${m === "scenarios" ? "active" : ""}"
+            @click=${() => (this.view = { mode: "scenarios" })}
+          >
+            Compare what-ifs
+          </button>
+          <button
+            class="tab ${m === "prices" ? "active" : ""}"
+            @click=${() => (this.view = { mode: "prices" })}
+          >
+            Market prices
+          </button>
+        </nav>
         <button
-          class="ghost"
-          @click=${() => (this.view = { mode: "scenarios" })}
-          title="Compare what-ifs"
-        >
-          ⚖️
-        </button>
-        <button
-          class="ghost"
-          @click=${() => (this.view = { mode: "prices" })}
-          title="Market prices"
-        >
-          📈
-        </button>
-        <button
-          class="ghost"
+          class="ghost icon-btn ${m === "settings" ? "active" : ""}"
           @click=${() => (this.view = { mode: "settings" })}
-          title="Settings & sync"
+          title="Settings"
+          aria-label="Settings"
         >
           ⚙️
         </button>
-        <button class="ghost" @click=${this.toggleTheme} title="Toggle theme">
-          ${this.theme === "light" ? "🌙" : "☀️"}
-        </button>
       </header>
       <main>${this.renderView()}</main>
+      <footer>
+        <a
+          href="https://github.com/ikhwanh/finance-lite"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path
+              d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"
+            />
+          </svg>
+          GitHub
+        </a>
+        <span class="sep">·</span>
+        <span>v${__APP_VERSION__}</span>
+      </footer>
     `;
   }
 
@@ -294,11 +381,6 @@ export class AppRoot extends LitElement {
       </button>
     `;
   }
-}
-
-function currentTheme(): Theme {
-  const t = document.documentElement.getAttribute("data-theme");
-  return t === "dark" ? "dark" : "light";
 }
 
 declare global {

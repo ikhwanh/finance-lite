@@ -1,0 +1,19 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - navigation [ref=e4]:
+      - button "Crop cycles" [ref=e5] [cursor=pointer]
+      - button "Compare what-ifs" [ref=e6] [cursor=pointer]
+      - button "Market prices" [ref=e7] [cursor=pointer]
+    - button "Settings" [ref=e8] [cursor=pointer]: ⚙️
+  - main [ref=e9]:
+    - generic [ref=e10]:
+      - heading "Crop cycles" [level=2] [ref=e11]
+      - button "+ New cycle" [ref=e12] [cursor=pointer]
+    - generic [ref=e13]: No cycles yet. Create one to see its break-even and profit.
+  - contentinfo [ref=e14]:
+    - link "GitHub" [ref=e15] [cursor=pointer]:
+      - /url: https://github.com/ikhwanh/finance-lite
+      - img [ref=e16]
+      - text: GitHub
+    - generic [ref=e18]: ·
+    - generic [ref=e19]: v1.0.0

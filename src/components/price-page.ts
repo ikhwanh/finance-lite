@@ -42,6 +42,7 @@ export class PricePage extends LitElement {
         border-radius: var(--pf-radius);
         padding: 1.2rem;
         margin-bottom: 1rem;
+        box-shadow: 0 1px 2px var(--pf-shadow);
       }
       h3 {
         margin: 0 0 0.9rem;

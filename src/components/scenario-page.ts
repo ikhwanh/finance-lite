@@ -86,6 +86,7 @@ export class ScenarioPage extends LitElement {
         border-radius: var(--pf-radius);
         padding: 0.9rem;
         position: relative;
+        box-shadow: 0 1px 2px var(--pf-shadow);
       }
       .col.base {
         border-color: var(--pf-text-muted);
