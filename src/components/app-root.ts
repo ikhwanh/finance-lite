@@ -1,8 +1,10 @@
 import { LitElement, html, css } from "lit";
 import { customElement, state } from "lit/decorators.js";
+import { Router } from "@lit-labs/router";
 import { controls } from "../styles/shared";
 import {
   listCyclesWithCosts,
+  getCycleWithCosts,
   listCrops,
   deleteCycle,
   getMonthlyOverhead,
@@ -11,40 +13,12 @@ import {
 import type { Crop } from "../domain/types";
 import { breakEvenPricePerKg, profitAtExpectedPrice, withOverhead } from "../domain/calc";
 import { formatRupiah } from "../domain/format";
+import { BASE, paths, patterns } from "../router";
 import "./cycle-editor";
 import "./settings-page";
 import "./price-page";
 import "./scenario-page";
 import "./overhead-page";
-
-type View =
-  | { mode: "list" }
-  | { mode: "edit"; record: CycleWithCosts | null }
-  | { mode: "prices" }
-  | { mode: "scenarios" }
-  | { mode: "overhead" }
-  | { mode: "settings" };
-
-type ViewMode = View["mode"];
-
-// Maps URL hash slugs to view modes. "edit" intentionally has no slug — it is a
-// sub-state of the crop cycles list and falls back to "crop_cycles".
-const HASH_TO_MODE: Record<string, ViewMode> = {
-  crop_cycles: "list",
-  scenarios: "scenarios",
-  market_prices: "prices",
-  overhead: "overhead",
-  settings: "settings",
-};
-
-const MODE_TO_HASH: Partial<Record<ViewMode, string>> = {
-  list: "crop_cycles",
-  edit: "crop_cycles",
-  scenarios: "scenarios",
-  prices: "market_prices",
-  overhead: "overhead",
-  settings: "settings",
-};
 
 @customElement("pf-app")
 export class AppRoot extends LitElement {
@@ -230,49 +204,84 @@ export class AppRoot extends LitElement {
     `,
   ];
 
-  @state() private view: View = { mode: "list" };
   @state() private cycles: CycleWithCosts[] = [];
   @state() private crops: Crop[] = [];
   @state() private monthlyOverhead = 0;
 
-  private readonly onHashChange = (): void => {
-    this.applyHash();
-  };
+  // The cycle currently being edited, loaded by the `:id` route's enter()
+  // hook (or null for a new cycle). Stored here so render() can read it.
+  private editRecord: CycleWithCosts | null = null;
+
+  // Declarative route table. @lit-labs/router matches each `path` against the
+  // full pathname and renders the matching `render()` into outlet(). The
+  // fallback covers the bare base URL and any unknown path.
+  private readonly router = new Router(
+    this,
+    [
+      { path: paths.list, render: () => this.renderList() },
+      { path: paths.newCycle, render: () => this.renderEdit(null) },
+      {
+        path: patterns.cycleById,
+        // Load the record before rendering so deep links survive a reload;
+        // an unknown id redirects to the list and cancels this navigation.
+        enter: async ({ id }) => {
+          const record = await getCycleWithCosts(Number(id));
+          if (!record) {
+            this.navigate(paths.list, { replace: true });
+            return false;
+          }
+          this.editRecord = record;
+          return true;
+        },
+        render: () => this.renderEdit(this.editRecord),
+      },
+      {
+        path: paths.scenarios,
+        render: () => html`<pf-scenario-page @close=${this.goList}></pf-scenario-page>`,
+      },
+      {
+        path: paths.prices,
+        render: () => html`<pf-price-page @close=${this.goList}></pf-price-page>`,
+      },
+      {
+        path: paths.overhead,
+        render: () => html`<pf-overhead-page
+          @close=${this.goList}
+          @changed=${this.onImported}
+        ></pf-overhead-page>`,
+      },
+      {
+        path: paths.settings,
+        render: () => html`<pf-settings-page
+          @close=${this.goList}
+          @imported=${this.onImported}
+        ></pf-settings-page>`,
+      },
+    ],
+    { fallback: { render: () => this.renderList() } },
+  );
 
   override connectedCallback(): void {
+    // Normalise the bare base URL (the PWA start_url) to the cycles list so
+    // the router has a concrete route and the tab highlights. Done before
+    // super.connectedCallback(), which kicks off the router's first match.
+    if (window.location.pathname.replace(/\/$/, "") === BASE) {
+      window.history.replaceState({}, "", paths.list);
+    }
     super.connectedCallback();
-    window.addEventListener("hashchange", this.onHashChange);
-    this.applyHash();
     void this.load();
   }
 
-  override disconnectedCallback(): void {
-    window.removeEventListener("hashchange", this.onHashChange);
-    super.disconnectedCallback();
-  }
-
-  // Reads the current URL hash and switches to the matching view. Unknown or
-  // empty hashes fall back to the crop cycles list.
-  private applyHash(): void {
-    const slug = window.location.hash.replace(/^#/, "");
-    const mode = HASH_TO_MODE[slug] ?? "list";
-    if (mode !== this.view.mode) {
-      this.view = { mode } as View;
+  // Navigates to an absolute path: updates history, then asks the router to
+  // render the match. `replace` swaps the current entry instead of pushing.
+  private readonly navigate = (path: string, opts?: { replace?: boolean }): void => {
+    if (window.location.pathname !== path) {
+      window.history[opts?.replace ? "replaceState" : "pushState"]({}, "", path);
     }
-  }
+    void this.router.goto(path);
+  };
 
-  // Navigates to a view and reflects it in the URL hash. Updating the hash
-  // triggers onHashChange, which applies the view, so we only set it here.
-  private goto(view: View): void {
-    const slug = MODE_TO_HASH[view.mode] ?? "crop_cycles";
-    if (window.location.hash.replace(/^#/, "") === slug) {
-      // Hash already correct (e.g. list -> edit); apply the view directly.
-      this.view = view;
-    } else {
-      this.view = view;
-      window.location.hash = slug;
-    }
-  }
+  private readonly goList = (): void => this.navigate(paths.list);
 
   private async load(): Promise<void> {
     const [cycles, crops, monthlyOverhead] = await Promise.all([
@@ -290,22 +299,22 @@ export class AppRoot extends LitElement {
   }
 
   private openNew(): void {
-    this.goto({ mode: "edit", record: null });
+    this.navigate(paths.newCycle);
   }
 
   private openEdit(record: CycleWithCosts): void {
-    this.goto({ mode: "edit", record });
+    this.navigate(paths.cycle(record.cycle.id!));
   }
 
   private async onSaved(): Promise<void> {
     await this.load();
-    this.goto({ mode: "list" });
+    this.goList();
   }
 
   private async onDelete(id: number): Promise<void> {
     await deleteCycle(id);
     await this.load();
-    this.goto({ mode: "list" });
+    this.goList();
   }
 
   private async onImported(): Promise<void> {
@@ -313,46 +322,47 @@ export class AppRoot extends LitElement {
   }
 
   override render() {
-    const m = this.view.mode;
-    const cyclesActive = m === "list" || m === "edit";
+    const path = window.location.pathname;
+    const isActive = (p: string): boolean => path === p;
+    const cyclesActive = path.startsWith(paths.list);
     return html`
       <header>
         <nav>
           <button
             class="tab ${cyclesActive ? "active" : ""}"
-            @click=${() => this.goto({ mode: "list" })}
+            @click=${() => this.navigate(paths.list)}
           >
             Crop cycles
           </button>
           <button
-            class="tab ${m === "scenarios" ? "active" : ""}"
-            @click=${() => this.goto({ mode: "scenarios" })}
+            class="tab ${isActive(paths.scenarios) ? "active" : ""}"
+            @click=${() => this.navigate(paths.scenarios)}
           >
             Compare what-ifs
           </button>
           <button
-            class="tab ${m === "prices" ? "active" : ""}"
-            @click=${() => this.goto({ mode: "prices" })}
+            class="tab ${isActive(paths.prices) ? "active" : ""}"
+            @click=${() => this.navigate(paths.prices)}
           >
             Market prices
           </button>
           <button
-            class="tab ${m === "overhead" ? "active" : ""}"
-            @click=${() => this.goto({ mode: "overhead" })}
+            class="tab ${isActive(paths.overhead) ? "active" : ""}"
+            @click=${() => this.navigate(paths.overhead)}
           >
             Overhead
           </button>
         </nav>
         <button
-          class="ghost icon-btn ${m === "settings" ? "active" : ""}"
-          @click=${() => this.goto({ mode: "settings" })}
+          class="ghost icon-btn ${isActive(paths.settings) ? "active" : ""}"
+          @click=${() => this.navigate(paths.settings)}
           title="Settings"
           aria-label="Settings"
         >
           ⚙️
         </button>
       </header>
-      <main>${this.renderView()}</main>
+      <main>${this.router.outlet()}</main>
       <footer>
         <a
           href="https://github.com/ikhwanh/finance-lite"
@@ -372,42 +382,14 @@ export class AppRoot extends LitElement {
     `;
   }
 
-  private renderView() {
-    switch (this.view.mode) {
-      case "edit":
-        return this.renderEdit();
-      case "prices":
-        return html`<pf-price-page
-          @close=${() => this.goto({ mode: "list" })}
-        ></pf-price-page>`;
-      case "scenarios":
-        return html`<pf-scenario-page
-          @close=${() => this.goto({ mode: "list" })}
-        ></pf-scenario-page>`;
-      case "overhead":
-        return html`<pf-overhead-page
-          @close=${() => this.goto({ mode: "list" })}
-          @changed=${this.onImported}
-        ></pf-overhead-page>`;
-      case "settings":
-        return html`<pf-settings-page
-          @close=${() => this.goto({ mode: "list" })}
-          @imported=${this.onImported}
-        ></pf-settings-page>`;
-      default:
-        return this.renderList();
-    }
-  }
-
-  private renderEdit() {
-    const record = this.view.mode === "edit" ? this.view.record : null;
+  private renderEdit(record: CycleWithCosts | null) {
     return html`
       <pf-cycle-editor
         .record=${record}
         .cropName=${record ? this.cropName(record.cycle.cropId) : ""}
         .monthlyOverhead=${this.monthlyOverhead}
         @saved=${this.onSaved}
-        @close=${() => this.goto({ mode: "list" })}
+        @close=${this.goList}
         @delete=${(e: CustomEvent<number>) => this.onDelete(e.detail)}
       ></pf-cycle-editor>
     `;

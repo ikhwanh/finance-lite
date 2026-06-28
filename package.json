@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",
+    "@lit-labs/router": "^0.1.4",
     "dexie": "^4.0.10",
     "lit": "^3.2.1"
   },

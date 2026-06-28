@@ -203,7 +203,13 @@ export class CycleEditor extends LitElement {
   @state() private error = "";
 
   override willUpdate(changed: Map<string, unknown>): void {
-    if (changed.has("record")) this.hydrate();
+    if (changed.has("record")) {
+      this.hydrate();
+    } else if (changed.has("cropName") && this.record) {
+      // On a cold deep-link, the crops list can load after the editor first
+      // renders, so the cropName prop arrives later. Re-sync the field then.
+      this.fCropName = this.cropName;
+    }
   }
 
   private hydrate(): void {

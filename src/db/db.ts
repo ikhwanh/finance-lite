@@ -104,6 +104,14 @@ export async function listCyclesWithCosts(): Promise<CycleWithCosts[]> {
   }));
 }
 
+/** Load a single cycle and its cost lines by id, or undefined if not found. */
+export async function getCycleWithCosts(id: number): Promise<CycleWithCosts | undefined> {
+  const cycle = await db.cycles.get(id);
+  if (!cycle) return undefined;
+  const costs = await db.costs.where("cycleId").equals(id).toArray();
+  return { cycle, costs };
+}
+
 export type CycleInput = Omit<CropCycle, "id" | "createdAt">;
 export type CostInput = Omit<CostItem, "id" | "cycleId" | "createdAt">;
 
