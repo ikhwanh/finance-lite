@@ -300,14 +300,6 @@ export class ScenarioPage extends LitElement {
     return html`
       <div class="topbar">
         <h2>Compare what-ifs</h2>
-        <span class="spacer"></span>
-        <button
-          class="ghost"
-          @click=${() =>
-            this.dispatchEvent(new CustomEvent("close", { bubbles: true, composed: true }))}
-        >
-          ← Back
-        </button>
       </div>
       ${this.records.length > 0
         ? html`<div class="picker">

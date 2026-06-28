@@ -221,14 +221,6 @@ export class SettingsPage extends LitElement {
     return html`
       <div class="topbar">
         <h2>Settings &amp; sync</h2>
-        <span class="spacer"></span>
-        <button
-          class="ghost"
-          @click=${() =>
-            this.dispatchEvent(new CustomEvent("close", { bubbles: true, composed: true }))}
-        >
-          ← Back
-        </button>
       </div>
 
       <div class="card">

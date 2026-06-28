@@ -228,14 +228,6 @@ export class PricePage extends LitElement {
     return html`
       <div class="topbar">
         <h2>Market prices</h2>
-        <span class="spacer"></span>
-        <button
-          class="ghost"
-          @click=${() =>
-            this.dispatchEvent(new CustomEvent("close", { bubbles: true, composed: true }))}
-        >
-          ← Back
-        </button>
       </div>
 
       <div class="card">
