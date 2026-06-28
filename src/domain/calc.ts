@@ -167,67 +167,6 @@ export function losesMoneyBelow(cycle: CropCycle, costs: CostItem[]): Money {
 }
 
 // ---------------------------------------------------------------------
-//  Realized profit & ledger
-//  "Realized" = money actually earned: only HARVESTED cycles, valued at
-//  their recorded actual yield and price (not the planning estimates).
-//  This is what owner withdrawals are drawn against.
-// ---------------------------------------------------------------------
-
-interface CycleCosts {
-  cycle: CropCycle;
-  costs: CostItem[];
-}
-
-/**
- * Profit a cycle ACTUALLY made. Returns null unless it is harvested AND has
- * both actual yield and actual price recorded — i.e. real money, not a guess.
- * Reuses totalCostAtYield (committed + perKg) and the overhead share.
- */
-export function realizedProfit(
-  cycle: CropCycle,
-  costs: CostItem[],
-  monthlyOverhead: number,
-): Money | null {
-  if (cycle.status !== "harvested") return null;
-  const kg = cycle.actualYieldKg;
-  const price = cycle.actualPricePerKg;
-  if (kg == null || price == null) return null;
-  const withOh = withOverhead(cycle, costs, monthlyOverhead);
-  return price * kg - totalCostAtYield(cycle, withOh, kg);
-}
-
-/** Sum of realized profit across all harvested cycles with actuals. */
-export function totalRealizedProfit(
-  records: CycleCosts[],
-  monthlyOverhead: number,
-): Money {
-  return records.reduce(
-    (sum, r) => sum + (realizedProfit(r.cycle, r.costs, monthlyOverhead) ?? 0),
-    0,
-  );
-}
-
-/**
- * Profit still to come: expected-price profit of cycles that have NOT yet
- * produced a realized number. Shown as a heads-up, never spendable.
- */
-export function totalProjectedProfit(
-  records: CycleCosts[],
-  monthlyOverhead: number,
-): Money {
-  return records.reduce((sum, r) => {
-    if (realizedProfit(r.cycle, r.costs, monthlyOverhead) != null) return sum;
-    const withOh = withOverhead(r.cycle, r.costs, monthlyOverhead);
-    return sum + profitAtExpectedPrice(r.cycle, withOh).expected;
-  }, 0);
-}
-
-/** Total owner draws taken out of the business. */
-export function totalWithdrawn(withdrawals: { amount: Money }[]): Money {
-  return withdrawals.reduce((sum, w) => sum + w.amount, 0);
-}
-
-// ---------------------------------------------------------------------
 //  Price observations -> seasonal assumption
 // ---------------------------------------------------------------------
 

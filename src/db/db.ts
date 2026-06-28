@@ -10,7 +10,6 @@ import type {
   PriceObservation,
   Scenario,
   Settings,
-  Withdrawal,
 } from "../domain/types";
 
 export const DB_NAME = "finance-lite";
@@ -23,7 +22,6 @@ export class FinanceDB extends Dexie {
   prices!: Table<PriceObservation, number>;
   scenarios!: Table<Scenario, number>;
   overheads!: Table<Overhead, number>;
-  withdrawals!: Table<Withdrawal, number>;
 
   constructor() {
     super(DB_NAME);
@@ -40,6 +38,12 @@ export class FinanceDB extends Dexie {
     });
     this.version(3).stores({
       withdrawals: "++id, date",
+    });
+    // v4 drops withdrawals — the Profit & cash feature was removed. Kept as a
+    // migration (rather than deleting v3) so existing v3 databases drop the
+    // store cleanly instead of hitting a Dexie VersionError.
+    this.version(4).stores({
+      withdrawals: null,
     });
   }
 }
@@ -183,20 +187,4 @@ export async function deleteOverhead(id: number): Promise<void> {
 export async function getMonthlyOverhead(): Promise<number> {
   const all = await db.overheads.toArray();
   return all.reduce((sum, o) => sum + o.amountPerMonth, 0);
-}
-
-// ---- Withdrawals (owner draws taken out of the business) ----
-
-export async function listWithdrawals(): Promise<Withdrawal[]> {
-  return db.withdrawals.orderBy("date").reverse().toArray();
-}
-
-export async function addWithdrawal(
-  w: Omit<Withdrawal, "id" | "createdAt">,
-): Promise<number> {
-  return db.withdrawals.add({ ...w, createdAt: now() });
-}
-
-export async function deleteWithdrawal(id: number): Promise<void> {
-  await db.withdrawals.delete(id);
 }
