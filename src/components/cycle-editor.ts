@@ -192,7 +192,8 @@ export class CycleEditor extends LitElement {
   @state() private fScaleCount = "500";
   @state() private fScaleUnit = "polybag";
   @state() private fPlant = "";
-  @state() private fHarvest = "";
+  /** Days from planting to estimated harvest. harvestDate is derived from this. */
+  @state() private fDays = "";
   @state() private fYieldWorst = "";
   @state() private fYieldExpected = "";
   @state() private fYieldBest = "";
@@ -215,7 +216,7 @@ export class CycleEditor extends LitElement {
       this.fScaleCount = "500";
       this.fScaleUnit = "polybag";
       this.fPlant = todayISO();
-      this.fHarvest = "";
+      this.fDays = "";
       this.fYieldWorst = "";
       this.fYieldExpected = "";
       this.fYieldBest = "";
@@ -232,7 +233,8 @@ export class CycleEditor extends LitElement {
     this.fScaleCount = String(cycle.scaleCount ?? 0);
     this.fScaleUnit = cycle.scaleUnit ?? "polybag";
     this.fPlant = cycle.plantDate;
-    this.fHarvest = cycle.harvestDate;
+    const days = daysBetween(cycle.plantDate, cycle.harvestDate);
+    this.fDays = days == null ? "" : String(days);
     this.fYieldWorst = String(cycle.yield.worstKg);
     this.fYieldExpected = String(cycle.yield.expectedKg);
     this.fYieldBest = String(cycle.yield.bestKg);
@@ -264,6 +266,11 @@ export class CycleEditor extends LitElement {
     }));
   }
 
+  /** Estimated harvest date, derived from plant date + days to harvest. */
+  private get harvestDate(): string {
+    return addDays(this.fPlant, num(this.fDays));
+  }
+
   private get liveCycle(): CropCycle {
     return {
       id: 0,
@@ -273,7 +280,7 @@ export class CycleEditor extends LitElement {
       scaleCount: num(this.fScaleCount),
       scaleUnit: this.fScaleUnit,
       plantDate: this.fPlant,
-      harvestDate: this.fHarvest,
+      harvestDate: this.harvestDate,
       yield: {
         worstKg: num(this.fYieldWorst),
         expectedKg: num(this.fYieldExpected),
@@ -367,12 +374,20 @@ export class CycleEditor extends LitElement {
             />
           </div>
           <div class="field">
-            <label>Harvest date (est.)</label>
+            <label>Days to harvest</label>
             <input
-              type="date"
-              .value=${this.fHarvest}
-              @input=${(e: Event) => (this.fHarvest = val(e))}
+              type="number"
+              step="1"
+              min="1"
+              .value=${this.fDays}
+              placeholder="100"
+              @input=${(e: Event) => (this.fDays = val(e))}
             />
+            ${this.fDays && this.fPlant
+              ? html`<small class="sub" style="margin:0.3rem 0 0"
+                  >Est. harvest ${formatDate(this.harvestDate)}</small
+                >`
+              : ""}
           </div>
         </div>
 
@@ -567,8 +582,9 @@ export class CycleEditor extends LitElement {
     this.error = "";
     if (!this.fCropName.trim()) return (this.error = "Crop name is required."), undefined;
     if (!this.fLabel.trim()) return (this.error = "Label is required."), undefined;
-    if (!this.fPlant || !this.fHarvest)
-      return (this.error = "Plant and harvest dates are required."), undefined;
+    if (!this.fPlant) return (this.error = "Plant date is required."), undefined;
+    if (num(this.fDays) <= 0)
+      return (this.error = "Days to harvest must be greater than zero."), undefined;
     if (num(this.fYieldExpected) <= 0)
       return (this.error = "Expected yield must be greater than zero."), undefined;
 
@@ -590,7 +606,7 @@ export class CycleEditor extends LitElement {
         scaleCount: num(this.fScaleCount),
         scaleUnit: this.fScaleUnit,
         plantDate: this.fPlant,
-        harvestDate: this.fHarvest,
+        harvestDate: this.harvestDate,
         yield: {
           worstKg: num(this.fYieldWorst),
           expectedKg: num(this.fYieldExpected),
@@ -624,6 +640,32 @@ function val(e: Event): string {
 
 function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** Add `days` to an ISO date string, returning a new ISO date ("" if invalid). */
+function addDays(iso: string, days: number): string {
+  if (!iso || !Number.isFinite(days)) return "";
+  const d = new Date(iso + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return "";
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Whole days from `from` to `to`; null if either date is missing/invalid. */
+function daysBetween(from: string, to: string): number | null {
+  if (!from || !to) return null;
+  const a = new Date(from + "T00:00:00").getTime();
+  const b = new Date(to + "T00:00:00").getTime();
+  if (Number.isNaN(a) || Number.isNaN(b)) return null;
+  return Math.round((b - a) / 86_400_000);
+}
+
+/** Format an ISO date for display, e.g. "12 Aug 2026". */
+function formatDate(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
 function fmtBand(n: number): string {

@@ -186,6 +186,24 @@ export class SettingsPage extends LitElement {
     }
   }
 
+  private async onSaveGistId(): Promise<void> {
+    this.busy = true;
+    this.gistStatus = null;
+    try {
+      const id = this.gistId?.trim() || undefined;
+      await saveSettings({ gistId: id });
+      this.gistId = id;
+      this.gistStatus = {
+        kind: "ok",
+        text: id ? `Linked to gist ${id}. Pull to load its data.` : "Gist unlinked.",
+      };
+    } catch (e) {
+      this.gistStatus = { kind: "err", text: errMsg(e) };
+    } finally {
+      this.busy = false;
+    }
+  }
+
   private async onPush(): Promise<void> {
     this.busy = true;
     this.gistStatus = null;
@@ -289,15 +307,29 @@ export class SettingsPage extends LitElement {
             Pull from gist
           </button>
         </div>
+        <div class="field" style="margin-top:0.8rem">
+          <label>Linked gist ID</label>
+          <input
+            type="text"
+            placeholder="leave empty to create on first push"
+            .value=${this.gistId ?? ""}
+            @input=${(e: Event) =>
+              (this.gistId = (e.target as HTMLInputElement).value || undefined)}
+          />
+        </div>
+        <div class="btns">
+          <button @click=${this.onSaveGistId} ?disabled=${this.busy}>Save gist ID</button>
+        </div>
         ${this.gistId
           ? html`<p class="linked">
-              Linked gist:
+              Open on GitHub:
               <a href="https://gist.github.com/${this.gistId}" target="_blank" rel="noreferrer"
                 >${this.gistId}</a
               >
             </p>`
           : html`<p class="muted" style="margin-top:0.5rem">
-              No gist linked yet — your first push creates one.
+              No gist linked yet — your first push creates one, or paste an existing ID above to
+              sync another device.
             </p>`}
         ${this.gistStatus
           ? html`<p class="status ${this.gistStatus.kind}">${this.gistStatus.text}</p>`

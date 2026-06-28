@@ -139,14 +139,6 @@ export class OverheadPage extends LitElement {
     return html`
       <div class="topbar">
         <h2>Overhead</h2>
-        <span class="spacer"></span>
-        <button
-          class="ghost"
-          @click=${() =>
-            this.dispatchEvent(new CustomEvent("close", { bubbles: true, composed: true }))}
-        >
-          ← Back
-        </button>
       </div>
 
       <div class="card">
@@ -185,8 +177,8 @@ export class OverheadPage extends LitElement {
 
       <div class="card">
         ${this.items.length === 0
-          ? html`<div class="empty">No overhead yet. Add rent, utilities, or tools above.</div>`
-          : html`<table>
+        ? html`<div class="empty">No overhead yet. Add rent, utilities, or tools above.</div>`
+        : html`<table>
               <thead>
                 <tr>
                   <th>Item</th>
@@ -196,7 +188,7 @@ export class OverheadPage extends LitElement {
               </thead>
               <tbody>
                 ${this.items.map(
-                  (o) => html`<tr>
+          (o) => html`<tr>
                     <td>${o.label}</td>
                     <td class="num">${formatRupiah(o.amountPerMonth)}</td>
                     <td class="num">
@@ -205,7 +197,7 @@ export class OverheadPage extends LitElement {
                       </button>
                     </td>
                   </tr>`,
-                )}
+        )}
               </tbody>
               <tfoot>
                 <tr>

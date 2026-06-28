@@ -25,6 +25,27 @@ type View =
   | { mode: "overhead" }
   | { mode: "settings" };
 
+type ViewMode = View["mode"];
+
+// Maps URL hash slugs to view modes. "edit" intentionally has no slug — it is a
+// sub-state of the crop cycles list and falls back to "crop_cycles".
+const HASH_TO_MODE: Record<string, ViewMode> = {
+  crop_cycles: "list",
+  scenarios: "scenarios",
+  market_prices: "prices",
+  overhead: "overhead",
+  settings: "settings",
+};
+
+const MODE_TO_HASH: Partial<Record<ViewMode, string>> = {
+  list: "crop_cycles",
+  edit: "crop_cycles",
+  scenarios: "scenarios",
+  prices: "market_prices",
+  overhead: "overhead",
+  settings: "settings",
+};
+
 @customElement("pf-app")
 export class AppRoot extends LitElement {
   static override styles = [
@@ -214,9 +235,43 @@ export class AppRoot extends LitElement {
   @state() private crops: Crop[] = [];
   @state() private monthlyOverhead = 0;
 
+  private readonly onHashChange = (): void => {
+    this.applyHash();
+  };
+
   override connectedCallback(): void {
     super.connectedCallback();
+    window.addEventListener("hashchange", this.onHashChange);
+    this.applyHash();
     void this.load();
+  }
+
+  override disconnectedCallback(): void {
+    window.removeEventListener("hashchange", this.onHashChange);
+    super.disconnectedCallback();
+  }
+
+  // Reads the current URL hash and switches to the matching view. Unknown or
+  // empty hashes fall back to the crop cycles list.
+  private applyHash(): void {
+    const slug = window.location.hash.replace(/^#/, "");
+    const mode = HASH_TO_MODE[slug] ?? "list";
+    if (mode !== this.view.mode) {
+      this.view = { mode } as View;
+    }
+  }
+
+  // Navigates to a view and reflects it in the URL hash. Updating the hash
+  // triggers onHashChange, which applies the view, so we only set it here.
+  private goto(view: View): void {
+    const slug = MODE_TO_HASH[view.mode] ?? "crop_cycles";
+    if (window.location.hash.replace(/^#/, "") === slug) {
+      // Hash already correct (e.g. list -> edit); apply the view directly.
+      this.view = view;
+    } else {
+      this.view = view;
+      window.location.hash = slug;
+    }
   }
 
   private async load(): Promise<void> {
@@ -235,22 +290,22 @@ export class AppRoot extends LitElement {
   }
 
   private openNew(): void {
-    this.view = { mode: "edit", record: null };
+    this.goto({ mode: "edit", record: null });
   }
 
   private openEdit(record: CycleWithCosts): void {
-    this.view = { mode: "edit", record };
+    this.goto({ mode: "edit", record });
   }
 
   private async onSaved(): Promise<void> {
     await this.load();
-    this.view = { mode: "list" };
+    this.goto({ mode: "list" });
   }
 
   private async onDelete(id: number): Promise<void> {
     await deleteCycle(id);
     await this.load();
-    this.view = { mode: "list" };
+    this.goto({ mode: "list" });
   }
 
   private async onImported(): Promise<void> {
@@ -265,32 +320,32 @@ export class AppRoot extends LitElement {
         <nav>
           <button
             class="tab ${cyclesActive ? "active" : ""}"
-            @click=${() => (this.view = { mode: "list" })}
+            @click=${() => this.goto({ mode: "list" })}
           >
             Crop cycles
           </button>
           <button
             class="tab ${m === "scenarios" ? "active" : ""}"
-            @click=${() => (this.view = { mode: "scenarios" })}
+            @click=${() => this.goto({ mode: "scenarios" })}
           >
             Compare what-ifs
           </button>
           <button
             class="tab ${m === "prices" ? "active" : ""}"
-            @click=${() => (this.view = { mode: "prices" })}
+            @click=${() => this.goto({ mode: "prices" })}
           >
             Market prices
           </button>
           <button
             class="tab ${m === "overhead" ? "active" : ""}"
-            @click=${() => (this.view = { mode: "overhead" })}
+            @click=${() => this.goto({ mode: "overhead" })}
           >
             Overhead
           </button>
         </nav>
         <button
           class="ghost icon-btn ${m === "settings" ? "active" : ""}"
-          @click=${() => (this.view = { mode: "settings" })}
+          @click=${() => this.goto({ mode: "settings" })}
           title="Settings"
           aria-label="Settings"
         >
@@ -323,20 +378,20 @@ export class AppRoot extends LitElement {
         return this.renderEdit();
       case "prices":
         return html`<pf-price-page
-          @close=${() => (this.view = { mode: "list" })}
+          @close=${() => this.goto({ mode: "list" })}
         ></pf-price-page>`;
       case "scenarios":
         return html`<pf-scenario-page
-          @close=${() => (this.view = { mode: "list" })}
+          @close=${() => this.goto({ mode: "list" })}
         ></pf-scenario-page>`;
       case "overhead":
         return html`<pf-overhead-page
-          @close=${() => (this.view = { mode: "list" })}
+          @close=${() => this.goto({ mode: "list" })}
           @changed=${this.onImported}
         ></pf-overhead-page>`;
       case "settings":
         return html`<pf-settings-page
-          @close=${() => (this.view = { mode: "list" })}
+          @close=${() => this.goto({ mode: "list" })}
           @imported=${this.onImported}
         ></pf-settings-page>`;
       default:
@@ -352,7 +407,7 @@ export class AppRoot extends LitElement {
         .cropName=${record ? this.cropName(record.cycle.cropId) : ""}
         .monthlyOverhead=${this.monthlyOverhead}
         @saved=${this.onSaved}
-        @close=${() => (this.view = { mode: "list" })}
+        @close=${() => this.goto({ mode: "list" })}
         @delete=${(e: CustomEvent<number>) => this.onDelete(e.detail)}
       ></pf-cycle-editor>
     `;
