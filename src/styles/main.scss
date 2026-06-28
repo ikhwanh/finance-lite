@@ -1,0 +1,99 @@
+@use "sass:map";
+
+// ---- Theme token definitions ----
+// Emitted as CSS custom properties on [data-theme="..."] so they inherit
+// into Lit shadow roots. Crop-green palette, prefix --pf-.
+
+$themes: (
+  light: (
+    bg: #f3f6f1,
+    surface: #ffffff,
+    surface-2: #eef2ea,
+    border: #d9e2d4,
+    text: #1f2a22,
+    text-muted: #5d6b60,
+    primary: #2f7d4f,
+    primary-text: #ffffff,
+    accent: #c98a2b,
+    danger: #c0392b,
+    ok: #2f7d4f,
+    warn: #c98a2b,
+    shadow: rgba(31, 42, 34, 0.12),
+  ),
+  dark: (
+    bg: #11161a,
+    surface: #1a2127,
+    surface-2: #222b32,
+    border: #313c45,
+    text: #e7edf0,
+    text-muted: #9aa7af,
+    primary: #4caf7a,
+    primary-text: #0c130f,
+    accent: #e0a94a,
+    danger: #e57367,
+    ok: #4caf7a,
+    warn: #e0a94a,
+    shadow: rgba(0, 0, 0, 0.45),
+  ),
+);
+
+@each $name, $tokens in $themes {
+  [data-theme="#{$name}"] {
+    @each $key, $val in $tokens {
+      --pf-#{$key}: #{$val};
+    }
+  }
+}
+
+:root {
+  --pf-radius: 12px;
+  --pf-radius-sm: 8px;
+  --pf-font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: var(--pf-font);
+  background: var(--pf-bg);
+  color: var(--pf-text);
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+pf-app {
+  display: block;
+  min-height: 100vh;
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--pf-text-muted) 40%, transparent) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--pf-text-muted) 40%, transparent);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--pf-text-muted) 65%, transparent);
+  background-clip: padding-box;
+}
