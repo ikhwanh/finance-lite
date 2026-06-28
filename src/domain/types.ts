@@ -130,6 +130,8 @@ export interface Overhead {
   id?: number;
   label: string; // "Yard rent", "Sprayer (amortized)"
   amountPerMonth: Money; // integer rupiah per month
+  price?: Money; // optional: actual purchase price (for amortized durables)
+  lifespanMonths?: number; // optional: useful life used to derive amountPerMonth
   note?: string;
   createdAt: IsoDateTime;
 }

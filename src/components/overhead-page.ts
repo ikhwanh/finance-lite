@@ -45,7 +45,7 @@ export class OverheadPage extends LitElement {
       }
       .add-row {
         display: grid;
-        grid-template-columns: 1.6fr 1fr auto;
+        grid-template-columns: 1.4fr 1fr 0.7fr 1fr auto;
         gap: 0.6rem;
         align-items: end;
       }
@@ -73,6 +73,11 @@ export class OverheadPage extends LitElement {
         text-align: right;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
+      }
+      .amortize {
+        font-size: 0.78rem;
+        color: var(--pf-text-muted);
+        margin-top: 0.15rem;
       }
       tfoot td {
         font-weight: 700;
@@ -103,8 +108,19 @@ export class OverheadPage extends LitElement {
 
   @state() private items: Overhead[] = [];
   @state() private fLabel = "";
+  @state() private fPrice = "";
+  @state() private fMonths = "";
   @state() private fAmount = "";
   @state() private error = "";
+
+  // Auto-fill the monthly amount from price / lifespan when both are given.
+  private recalcAmount(): void {
+    const price = Number(this.fPrice);
+    const months = Number(this.fMonths);
+    if (Number.isFinite(price) && price > 0 && Number.isFinite(months) && months > 0) {
+      this.fAmount = String(Math.round(price / months));
+    }
+  }
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -121,8 +137,17 @@ export class OverheadPage extends LitElement {
     if (!this.fLabel.trim()) return void (this.error = "Label is required.");
     if (!Number.isFinite(amount) || amount <= 0)
       return void (this.error = "Enter a monthly amount greater than zero.");
-    await addOverhead({ label: this.fLabel.trim(), amountPerMonth: Math.round(amount) });
+    const price = Number(this.fPrice);
+    const months = Number(this.fMonths);
+    await addOverhead({
+      label: this.fLabel.trim(),
+      amountPerMonth: Math.round(amount),
+      ...(Number.isFinite(price) && price > 0 ? { price: Math.round(price) } : {}),
+      ...(Number.isFinite(months) && months > 0 ? { lifespanMonths: Math.round(months) } : {}),
+    });
     this.fLabel = "";
+    this.fPrice = "";
+    this.fMonths = "";
     this.fAmount = "";
     await this.load();
     this.dispatchEvent(new CustomEvent("changed", { bubbles: true, composed: true }));
@@ -136,6 +161,7 @@ export class OverheadPage extends LitElement {
 
   override render() {
     const total = this.items.reduce((s, o) => s + o.amountPerMonth, 0);
+    const totalPrice = this.items.reduce((s, o) => s + (o.price ?? 0), 0);
     return html`
       <div class="topbar">
         <h2>Overhead</h2>
@@ -157,6 +183,30 @@ export class OverheadPage extends LitElement {
             />
           </div>
           <div class="field">
+            <label>Actual price</label>
+            <input
+              type="number"
+              placeholder="600000"
+              .value=${this.fPrice}
+              @input=${(e: Event) => {
+        this.fPrice = val(e);
+        this.recalcAmount();
+      }}
+            />
+          </div>
+          <div class="field">
+            <label>Months</label>
+            <input
+              type="number"
+              placeholder="36"
+              .value=${this.fMonths}
+              @input=${(e: Event) => {
+        this.fMonths = val(e);
+        this.recalcAmount();
+      }}
+            />
+          </div>
+          <div class="field">
             <label>Rp / month</label>
             <input
               type="number"
@@ -170,8 +220,9 @@ export class OverheadPage extends LitElement {
         </div>
         ${this.error ? html`<p class="err">${this.error}</p>` : ""}
         <p class="note">
-          💡 For a durable tool, divide its price by its useful life in months and enter that as
-          the monthly amount — e.g. a Rp 600.000 sprayer lasting 3 years → Rp 17.000/month.
+          💡 For a durable tool, enter its actual price and useful life in months — the monthly
+          amount is filled in for you. E.g. a Rp 600.000 sprayer lasting 36 months → Rp
+          17.000/month. You can also type the monthly amount directly.
         </p>
       </div>
 
@@ -189,7 +240,14 @@ export class OverheadPage extends LitElement {
               <tbody>
                 ${this.items.map(
           (o) => html`<tr>
-                    <td>${o.label}</td>
+                    <td>
+                      ${o.label}
+                      ${o.price && o.lifespanMonths
+            ? html`<div class="amortize">
+                            ${formatRupiah(o.price)} ÷ ${o.lifespanMonths} mo
+                          </div>`
+            : ""}
+                    </td>
                     <td class="num">${formatRupiah(o.amountPerMonth)}</td>
                     <td class="num">
                       <button class="ghost del" @click=${() => this.removeOverhead(o.id!)}>
@@ -200,6 +258,13 @@ export class OverheadPage extends LitElement {
         )}
               </tbody>
               <tfoot>
+                ${totalPrice > 0
+            ? html`<tr>
+                      <td>Total actual price</td>
+                      <td class="num">${formatRupiah(totalPrice)}</td>
+                      <td></td>
+                    </tr>`
+            : ""}
                 <tr>
                   <td>Total pool</td>
                   <td class="num">${formatRupiah(total)}/mo</td>
