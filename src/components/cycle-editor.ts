@@ -15,6 +15,9 @@ import {
   committedCost,
   perUnitCost,
   variableCostPerKg,
+  withOverhead,
+  allocatedOverhead,
+  durationMonths,
 } from "../domain/calc";
 import { formatRupiah, formatKg } from "../domain/format";
 
@@ -180,6 +183,8 @@ export class CycleEditor extends LitElement {
   @property({ attribute: false }) record: CycleWithCosts | null = null;
   /** Resolved crop name for the record (edit mode). */
   @property({ type: String }) cropName = "";
+  /** Monthly overhead pool, allocated into this cycle's break-even. */
+  @property({ type: Number }) monthlyOverhead = 0;
 
   @state() private fCropName = "";
   @state() private fLabel = "";
@@ -282,7 +287,8 @@ export class CycleEditor extends LitElement {
 
   override render() {
     const cyc = this.liveCycle;
-    const costs = this.costItems;
+    const costs = withOverhead(cyc, this.costItems, this.monthlyOverhead);
+    const overhead = allocatedOverhead(cyc, this.monthlyOverhead);
     const committed = committedCost(cyc, costs);
     const perUnit = perUnitCost(costs);
     const varKg = variableCostPerKg(costs);
@@ -445,6 +451,14 @@ export class CycleEditor extends LitElement {
           <span class="k">Variable cost</span>
           <span class="v">${varKg ? `${formatRupiah(varKg)}/kg` : "–"}</span>
         </div>
+        ${overhead > 0
+          ? html`<div class="metric">
+              <span class="k"
+                >Overhead share<br /><small>${durationMonths(cyc)} mo (in committed)</small></span
+              >
+              <span class="v">${formatRupiah(overhead)}</span>
+            </div>`
+          : ""}
         <div class="metric">
           <span class="k">Break-even price<br /><small>worst · exp · best yield</small></span>
           <span class="v band">

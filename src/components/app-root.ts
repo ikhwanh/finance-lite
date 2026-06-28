@@ -5,21 +5,24 @@ import {
   listCyclesWithCosts,
   listCrops,
   deleteCycle,
+  getMonthlyOverhead,
   type CycleWithCosts,
 } from "../db/db";
 import type { Crop } from "../domain/types";
-import { breakEvenPricePerKg, profitAtExpectedPrice } from "../domain/calc";
+import { breakEvenPricePerKg, profitAtExpectedPrice, withOverhead } from "../domain/calc";
 import { formatRupiah } from "../domain/format";
 import "./cycle-editor";
 import "./settings-page";
 import "./price-page";
 import "./scenario-page";
+import "./overhead-page";
 
 type View =
   | { mode: "list" }
   | { mode: "edit"; record: CycleWithCosts | null }
   | { mode: "prices" }
   | { mode: "scenarios" }
+  | { mode: "overhead" }
   | { mode: "settings" };
 
 @customElement("pf-app")
@@ -209,6 +212,7 @@ export class AppRoot extends LitElement {
   @state() private view: View = { mode: "list" };
   @state() private cycles: CycleWithCosts[] = [];
   @state() private crops: Crop[] = [];
+  @state() private monthlyOverhead = 0;
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -216,9 +220,14 @@ export class AppRoot extends LitElement {
   }
 
   private async load(): Promise<void> {
-    const [cycles, crops] = await Promise.all([listCyclesWithCosts(), listCrops()]);
+    const [cycles, crops, monthlyOverhead] = await Promise.all([
+      listCyclesWithCosts(),
+      listCrops(),
+      getMonthlyOverhead(),
+    ]);
     this.cycles = cycles;
     this.crops = crops;
+    this.monthlyOverhead = monthlyOverhead;
   }
 
   private cropName(cropId: number): string {
@@ -272,6 +281,12 @@ export class AppRoot extends LitElement {
           >
             Market prices
           </button>
+          <button
+            class="tab ${m === "overhead" ? "active" : ""}"
+            @click=${() => (this.view = { mode: "overhead" })}
+          >
+            Overhead
+          </button>
         </nav>
         <button
           class="ghost icon-btn ${m === "settings" ? "active" : ""}"
@@ -314,6 +329,11 @@ export class AppRoot extends LitElement {
         return html`<pf-scenario-page
           @close=${() => (this.view = { mode: "list" })}
         ></pf-scenario-page>`;
+      case "overhead":
+        return html`<pf-overhead-page
+          @close=${() => (this.view = { mode: "list" })}
+          @changed=${this.onImported}
+        ></pf-overhead-page>`;
       case "settings":
         return html`<pf-settings-page
           @close=${() => (this.view = { mode: "list" })}
@@ -330,6 +350,7 @@ export class AppRoot extends LitElement {
       <pf-cycle-editor
         .record=${record}
         .cropName=${record ? this.cropName(record.cycle.cropId) : ""}
+        .monthlyOverhead=${this.monthlyOverhead}
         @saved=${this.onSaved}
         @close=${() => (this.view = { mode: "list" })}
         @delete=${(e: CustomEvent<number>) => this.onDelete(e.detail)}
@@ -355,8 +376,9 @@ export class AppRoot extends LitElement {
   }
 
   private renderCard(r: CycleWithCosts) {
-    const profit = profitAtExpectedPrice(r.cycle, r.costs);
-    const bep = breakEvenPricePerKg(r.cycle, r.costs);
+    const costs = withOverhead(r.cycle, r.costs, this.monthlyOverhead);
+    const profit = profitAtExpectedPrice(r.cycle, costs);
+    const bep = breakEvenPricePerKg(r.cycle, costs);
     return html`
       <button class="cyc" @click=${() => this.openEdit(r)}>
         <div class="top">

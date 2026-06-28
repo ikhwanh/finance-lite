@@ -117,6 +117,22 @@ export interface CostItem {
 }
 
 // =====================================================================
+//  Overhead: business-level shared fixed costs (rent, utilities, tools)
+//  that don't belong to one cycle. Stored as a monthly amount and
+//  allocated to each cycle by how many months that cycle runs, so the
+//  per-cycle break-even reflects a fair share of overhead.
+//  For durable tools, enter price / lifespan-in-months as the monthly amount.
+// =====================================================================
+
+export interface Overhead {
+  id?: number;
+  label: string; // "Yard rent", "Sprayer (amortized)"
+  amountPerMonth: Money; // integer rupiah per month
+  note?: string;
+  createdAt: IsoDateTime;
+}
+
+// =====================================================================
 //  PriceObservation: 5-second log of a market price you asked about.
 //  Pure local data; over seasons these roll up into a per-crop curve
 //  that seeds expectedPricePerKg on future cycles.

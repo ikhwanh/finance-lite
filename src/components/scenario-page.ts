@@ -1,13 +1,19 @@
 import { LitElement, html, css } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { controls } from "../styles/shared";
-import { listCyclesWithCosts, listCrops, type CycleWithCosts } from "../db/db";
+import {
+  listCyclesWithCosts,
+  listCrops,
+  getMonthlyOverhead,
+  type CycleWithCosts,
+} from "../db/db";
 import type { Crop, CropCycle, CostItem } from "../domain/types";
 import {
   breakEvenPricePerKg,
   breakEvenYieldKg,
   committedCost,
   profitAtExpectedPrice,
+  withOverhead,
 } from "../domain/calc";
 import { formatRupiah, formatKg } from "../domain/format";
 
@@ -189,6 +195,7 @@ export class ScenarioPage extends LitElement {
   @state() private crops: Crop[] = [];
   @state() private baseId: number | null = null;
   @state() private variants: Variant[] = [];
+  @state() private monthlyOverhead = 0;
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -196,9 +203,14 @@ export class ScenarioPage extends LitElement {
   }
 
   private async load(): Promise<void> {
-    const [records, crops] = await Promise.all([listCyclesWithCosts(), listCrops()]);
+    const [records, crops, monthlyOverhead] = await Promise.all([
+      listCyclesWithCosts(),
+      listCrops(),
+      getMonthlyOverhead(),
+    ]);
     this.records = records;
     this.crops = crops;
+    this.monthlyOverhead = monthlyOverhead;
     if (this.baseId == null || !records.some((r) => r.cycle.id === this.baseId)) {
       this.baseId = records[0]?.cycle.id ?? null;
       this.variants = [];
@@ -239,7 +251,10 @@ export class ScenarioPage extends LitElement {
   }
 
   private compute(base: CycleWithCosts, v?: Variant): Computed {
-    const { cycle, costs } = this.derive(base, v);
+    const derived = this.derive(base, v);
+    const cycle = derived.cycle;
+    // overhead is business-level: added after any per-cycle cost ×factor.
+    const costs = withOverhead(cycle, derived.costs, this.monthlyOverhead);
     const profit = profitAtExpectedPrice(cycle, costs);
     return {
       committed: committedCost(cycle, costs),

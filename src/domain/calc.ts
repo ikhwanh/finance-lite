@@ -57,6 +57,59 @@ export function totalCostAtYield(cycle: CropCycle, costs: CostItem[], kg: number
 }
 
 // ---------------------------------------------------------------------
+//  Overhead allocation
+//  Business-level fixed costs (rent, tools) are entered as a monthly pool
+//  and allocated to a cycle by how many months it runs — i.e. "the rent
+//  etc. for the months this crop occupies the operation". This assumes
+//  cycles run roughly sequentially; overlapping cycles each carry their
+//  own months (a slight over-allocation, the conservative direction).
+// ---------------------------------------------------------------------
+
+/** Whole months between plant and harvest, at least 1. */
+export function durationMonths(cycle: CropCycle): number {
+  const p = cycle.plantDate;
+  const h = cycle.harvestDate;
+  if (!p || !h) return 1;
+  const pd = new Date(p);
+  const hd = new Date(h);
+  if (Number.isNaN(pd.getTime()) || Number.isNaN(hd.getTime())) return 1;
+  const months =
+    (hd.getFullYear() - pd.getFullYear()) * 12 + (hd.getMonth() - pd.getMonth());
+  return Math.max(1, months);
+}
+
+/** Overhead allocated to a cycle = monthly pool × its duration in months. */
+export function allocatedOverhead(cycle: CropCycle, monthlyOverhead: number): Money {
+  return Math.round(monthlyOverhead * durationMonths(cycle));
+}
+
+/**
+ * Returns the cost list augmented with a synthetic perCycle line for the
+ * allocated overhead, so all the calc functions below pick it up unchanged.
+ * Pass the monthly overhead pool (sum of all Overhead.amountPerMonth).
+ */
+export function withOverhead(
+  cycle: CropCycle,
+  costs: CostItem[],
+  monthlyOverhead: number,
+): CostItem[] {
+  const amount = allocatedOverhead(cycle, monthlyOverhead);
+  if (amount <= 0) return costs;
+  return [
+    ...costs,
+    {
+      id: -1,
+      cycleId: cycle.id ?? -1,
+      label: "Overhead (allocated)",
+      category: "other",
+      basis: "perCycle",
+      amount,
+      createdAt: "",
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------
 //  The headline numbers
 // ---------------------------------------------------------------------
 

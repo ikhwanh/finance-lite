@@ -6,6 +6,7 @@ import type {
   Crop,
   CropCycle,
   CostItem,
+  Overhead,
   PriceObservation,
   Scenario,
   Settings,
@@ -20,6 +21,7 @@ export class FinanceDB extends Dexie {
   costs!: Table<CostItem, number>;
   prices!: Table<PriceObservation, number>;
   scenarios!: Table<Scenario, number>;
+  overheads!: Table<Overhead, number>;
 
   constructor() {
     super(DB_NAME);
@@ -30,6 +32,9 @@ export class FinanceDB extends Dexie {
       costs: "++id, cycleId, category",
       prices: "++id, cropId, date",
       scenarios: "++id, name",
+    });
+    this.version(2).stores({
+      overheads: "++id",
     });
   }
 }
@@ -151,4 +156,26 @@ export async function addPriceObservation(
 
 export async function deletePriceObservation(id: number): Promise<void> {
   await db.prices.delete(id);
+}
+
+// ---- Overheads (business-level shared fixed costs) ----
+
+export async function listOverheads(): Promise<Overhead[]> {
+  return db.overheads.orderBy("id").toArray();
+}
+
+export async function addOverhead(
+  o: Omit<Overhead, "id" | "createdAt">,
+): Promise<number> {
+  return db.overheads.add({ ...o, createdAt: now() });
+}
+
+export async function deleteOverhead(id: number): Promise<void> {
+  await db.overheads.delete(id);
+}
+
+/** Sum of all overhead monthly amounts — the pool allocated across cycles. */
+export async function getMonthlyOverhead(): Promise<number> {
+  const all = await db.overheads.toArray();
+  return all.reduce((sum, o) => sum + o.amountPerMonth, 0);
 }
