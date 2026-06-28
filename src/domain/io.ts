@@ -14,10 +14,11 @@ import type {
   Overhead,
   PriceObservation,
   Scenario,
+  Withdrawal,
 } from "./types";
 
 export const APP = "finance-lite";
-export const BACKUP_VERSION = 1;
+export const BACKUP_VERSION = 2;
 
 export interface BackupData {
   app: typeof APP;
@@ -30,6 +31,7 @@ export interface BackupData {
   prices: PriceObservation[];
   scenarios: Scenario[];
   overheads: Overhead[];
+  withdrawals: Withdrawal[];
 }
 
 export interface ImportCounts {
@@ -39,19 +41,22 @@ export interface ImportCounts {
   prices: number;
   scenarios: number;
   overheads: number;
+  withdrawals: number;
 }
 
 /** Serialize all user data. Secrets are intentionally excluded. */
 export async function exportData(): Promise<BackupData> {
-  const [settings, crops, cycles, costs, prices, scenarios, overheads] = await Promise.all([
-    getSettings(),
-    db.crops.toArray(),
-    db.cycles.toArray(),
-    db.costs.toArray(),
-    db.prices.toArray(),
-    db.scenarios.toArray(),
-    db.overheads.toArray(),
-  ]);
+  const [settings, crops, cycles, costs, prices, scenarios, overheads, withdrawals] =
+    await Promise.all([
+      getSettings(),
+      db.crops.toArray(),
+      db.cycles.toArray(),
+      db.costs.toArray(),
+      db.prices.toArray(),
+      db.scenarios.toArray(),
+      db.overheads.toArray(),
+      db.withdrawals.toArray(),
+    ]);
   return {
     app: APP,
     version: BACKUP_VERSION,
@@ -63,6 +68,7 @@ export async function exportData(): Promise<BackupData> {
     prices,
     scenarios,
     overheads,
+    withdrawals,
   };
 }
 
@@ -78,7 +84,7 @@ function isBackup(x: unknown): x is BackupData {
 export async function importData(data: BackupData): Promise<ImportCounts> {
   await db.transaction(
     "rw",
-    [db.crops, db.cycles, db.costs, db.prices, db.scenarios, db.overheads],
+    [db.crops, db.cycles, db.costs, db.prices, db.scenarios, db.overheads, db.withdrawals],
     async () => {
       await Promise.all([
         db.crops.clear(),
@@ -87,6 +93,7 @@ export async function importData(data: BackupData): Promise<ImportCounts> {
         db.prices.clear(),
         db.scenarios.clear(),
         db.overheads.clear(),
+        db.withdrawals.clear(),
       ]);
       // ids preserved so cropId / cycleId references stay valid.
       if (data.crops?.length) await db.crops.bulkAdd(data.crops);
@@ -95,6 +102,7 @@ export async function importData(data: BackupData): Promise<ImportCounts> {
       if (data.prices?.length) await db.prices.bulkAdd(data.prices);
       if (data.scenarios?.length) await db.scenarios.bulkAdd(data.scenarios);
       if (data.overheads?.length) await db.overheads.bulkAdd(data.overheads);
+      if (data.withdrawals?.length) await db.withdrawals.bulkAdd(data.withdrawals);
     },
   );
   // currency is non-secret; token/gistId stay as they are locally.
@@ -107,6 +115,7 @@ export async function importData(data: BackupData): Promise<ImportCounts> {
     prices: data.prices?.length ?? 0,
     scenarios: data.scenarios?.length ?? 0,
     overheads: data.overheads?.length ?? 0,
+    withdrawals: data.withdrawals?.length ?? 0,
   };
 }
 

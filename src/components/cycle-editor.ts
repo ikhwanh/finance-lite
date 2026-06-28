@@ -15,6 +15,7 @@ import {
   committedCost,
   perUnitCost,
   variableCostPerKg,
+  totalCostAtYield,
   withOverhead,
   allocatedOverhead,
   durationMonths,
@@ -199,6 +200,10 @@ export class CycleEditor extends LitElement {
   @state() private fYieldBest = "";
   @state() private fPrice = "";
   @state() private fStatus: CropCycle["status"] = "planned";
+  /** Actuals — only relevant once harvested. */
+  @state() private fActualYield = "";
+  @state() private fActualPrice = "";
+  @state() private fActualHarvest = "";
   @state() private rows: CostRow[] = [];
   @state() private error = "";
 
@@ -222,6 +227,9 @@ export class CycleEditor extends LitElement {
       this.fYieldBest = "";
       this.fPrice = "";
       this.fStatus = "planned";
+      this.fActualYield = "";
+      this.fActualPrice = "";
+      this.fActualHarvest = "";
       this.rows = [blankRow()];
       this.error = "";
       return;
@@ -240,6 +248,9 @@ export class CycleEditor extends LitElement {
     this.fYieldBest = String(cycle.yield.bestKg);
     this.fPrice = String(cycle.expectedPricePerKg);
     this.fStatus = cycle.status;
+    this.fActualYield = cycle.actualYieldKg == null ? "" : String(cycle.actualYieldKg);
+    this.fActualPrice = cycle.actualPricePerKg == null ? "" : String(cycle.actualPricePerKg);
+    this.fActualHarvest = cycle.actualHarvestDate ?? "";
     this.rows = costs.length
       ? costs.map((c) => ({
           clientId: rowSeq++,
@@ -288,8 +299,33 @@ export class CycleEditor extends LitElement {
       },
       expectedPricePerKg: num(this.fPrice),
       status: this.fStatus,
+      ...this.actuals,
       createdAt: "",
     };
+  }
+
+  /** Actual yield/price/date, only when present. Empty object otherwise so
+   *  the fields stay unset rather than stored as zeros. */
+  private get actuals(): Partial<
+    Pick<CropCycle, "actualYieldKg" | "actualPricePerKg" | "actualHarvestDate">
+  > {
+    const out: Partial<
+      Pick<CropCycle, "actualYieldKg" | "actualPricePerKg" | "actualHarvestDate">
+    > = {};
+    if (this.fActualYield.trim()) out.actualYieldKg = num(this.fActualYield);
+    if (this.fActualPrice.trim()) out.actualPricePerKg = num(this.fActualPrice);
+    if (this.fActualHarvest) out.actualHarvestDate = this.fActualHarvest;
+    return out;
+  }
+
+  /** Realized profit preview: actual price × actual yield − total cost at that
+   *  yield. null until both actuals are filled in. */
+  private get realizedPreview(): number | null {
+    if (!this.fActualYield.trim() || !this.fActualPrice.trim()) return null;
+    const cyc = this.liveCycle;
+    const kg = num(this.fActualYield);
+    const costs = withOverhead(cyc, this.costItems, this.monthlyOverhead);
+    return num(this.fActualPrice) * kg - totalCostAtYield(cyc, costs, kg);
   }
 
   override render() {
@@ -428,6 +464,8 @@ export class CycleEditor extends LitElement {
           />
         </div>
 
+        ${this.fStatus === "harvested" ? this.renderActuals() : ""}
+
         <h3 style="margin-top:1.4rem">Costs</h3>
         <div class="costs-head">
           <label>Item</label>
@@ -513,6 +551,51 @@ export class CycleEditor extends LitElement {
               Enter an expected yield to see the result.
             </div>`}
       </div>
+    `;
+  }
+
+  private renderActuals() {
+    const realized = this.realizedPreview;
+    return html`
+      <h3 style="margin-top:1.4rem">Actuals (harvested)</h3>
+      <p class="sub" style="margin-top:0">
+        What really happened. These feed realized profit on the Profit &amp; cash page — leave
+        blank and this cycle won't count yet.
+      </p>
+      <div class="row">
+        <div class="field">
+          <label>Actual yield (kg)</label>
+          <input
+            type="number"
+            .value=${this.fActualYield}
+            placeholder=${this.fYieldExpected || "0"}
+            @input=${(e: Event) => (this.fActualYield = val(e))}
+          />
+        </div>
+        <div class="field">
+          <label>Actual price (Rp/kg)</label>
+          <input
+            type="number"
+            .value=${this.fActualPrice}
+            placeholder=${this.fPrice || "0"}
+            @input=${(e: Event) => (this.fActualPrice = val(e))}
+          />
+        </div>
+        <div class="field">
+          <label>Actual harvest date</label>
+          <input
+            type="date"
+            .value=${this.fActualHarvest}
+            @input=${(e: Event) => (this.fActualHarvest = val(e))}
+          />
+        </div>
+      </div>
+      ${realized != null
+        ? html`<div class="metric" style="border-bottom:none">
+            <span class="k">Realized profit</span>
+            <span class="v ${cls(realized)}">${formatRupiah(realized)}</span>
+          </div>`
+        : ""}
     `;
   }
 
@@ -614,6 +697,7 @@ export class CycleEditor extends LitElement {
         },
         expectedPricePerKg: num(this.fPrice),
         status: this.fStatus,
+        ...(this.fStatus === "harvested" ? this.actuals : {}),
       },
       costInputs,
       this.record?.cycle.id,

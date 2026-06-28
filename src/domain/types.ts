@@ -75,8 +75,10 @@ export interface CropCycle {
 
   status: CycleStatus;
 
-  // ---- Actuals (v2; reserved now so calc can prefer them later) ----
+  // ---- Actuals: filled in once a cycle is harvested, so realized profit
+  //      (and the ledger) can use what really happened instead of estimates. ----
   actualYieldKg?: number;
+  actualPricePerKg?: Money; // what you actually sold at
   actualHarvestDate?: IsoDate;
 
   createdAt: IsoDateTime;
@@ -129,6 +131,20 @@ export interface Overhead {
   label: string; // "Yard rent", "Sprayer (amortized)"
   amountPerMonth: Money; // integer rupiah per month
   note?: string;
+  createdAt: IsoDateTime;
+}
+
+// =====================================================================
+//  Withdrawal: money the owner takes OUT of the business (owner draw).
+//  Subtracted from realized profit to show what's actually retained.
+//  Not tied to any one cycle — like overhead, it's business-level.
+// =====================================================================
+
+export interface Withdrawal {
+  id?: number;
+  date: IsoDate;
+  amount: Money; // integer rupiah taken out
+  note?: string; // "owner draw", "paid myself"
   createdAt: IsoDateTime;
 }
 

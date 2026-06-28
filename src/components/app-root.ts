@@ -16,6 +16,7 @@ import "./settings-page";
 import "./price-page";
 import "./scenario-page";
 import "./overhead-page";
+import "./ledger-page";
 
 type View =
   | { mode: "list" }
@@ -23,6 +24,7 @@ type View =
   | { mode: "prices" }
   | { mode: "scenarios" }
   | { mode: "overhead" }
+  | { mode: "ledger" }
   | { mode: "settings" };
 
 type ViewMode = View["mode"];
@@ -34,6 +36,7 @@ const HASH_TO_MODE: Record<string, ViewMode> = {
   scenarios: "scenarios",
   market_prices: "prices",
   overhead: "overhead",
+  profit_cash: "ledger",
   settings: "settings",
 };
 
@@ -43,6 +46,7 @@ const MODE_TO_HASH: Partial<Record<ViewMode, string>> = {
   scenarios: "scenarios",
   prices: "market_prices",
   overhead: "overhead",
+  ledger: "profit_cash",
   settings: "settings",
 };
 
@@ -342,6 +346,12 @@ export class AppRoot extends LitElement {
           >
             Overhead
           </button>
+          <button
+            class="tab ${m === "ledger" ? "active" : ""}"
+            @click=${() => this.goto({ mode: "ledger" })}
+          >
+            Profit &amp; cash
+          </button>
         </nav>
         <button
           class="ghost icon-btn ${m === "settings" ? "active" : ""}"
@@ -389,6 +399,10 @@ export class AppRoot extends LitElement {
           @close=${() => this.goto({ mode: "list" })}
           @changed=${this.onImported}
         ></pf-overhead-page>`;
+      case "ledger":
+        return html`<pf-ledger-page
+          @close=${() => this.goto({ mode: "list" })}
+        ></pf-ledger-page>`;
       case "settings":
         return html`<pf-settings-page
           @close=${() => this.goto({ mode: "list" })}
