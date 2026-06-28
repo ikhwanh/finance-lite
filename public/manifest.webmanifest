@@ -1,0 +1,18 @@
+{
+  "name": "Finance Lite",
+  "short_name": "Finance Lite",
+  "description": "Local-first crop-farm financial planner: cost tracking, break-even, seasonal pricing.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2f7d4f",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -2,6 +2,11 @@ import { LitElement, html, css } from "lit";
 import { customElement, state } from "lit/decorators.js";
 import { controls } from "../styles/shared";
 import { getSettings, saveSettings } from "../db/db";
+import {
+  getStorageStatus,
+  requestPersistence,
+  type StorageStatus,
+} from "../db/persist";
 import { exportJSON, importJSON, downloadFile } from "../domain/io";
 import { verifyToken } from "../domain/gist";
 import { pushToGist, pullFromGist } from "../domain/sync";
@@ -115,16 +120,45 @@ export class SettingsPage extends LitElement {
   @state() private busy = false;
   @state() private fileStatus: Status = null;
   @state() private gistStatus: Status = null;
+  @state() private storage: StorageStatus | null = null;
+  @state() private storageStatus: Status = null;
 
   override connectedCallback(): void {
     super.connectedCallback();
     void this.loadSettings();
+    void this.refreshStorage();
   }
 
   private async loadSettings(): Promise<void> {
     const s = await getSettings();
     this.token = s.githubToken ?? "";
     this.gistId = s.gistId;
+  }
+
+  // ---- persistent storage ----
+
+  private async refreshStorage(): Promise<void> {
+    this.storage = await getStorageStatus();
+  }
+
+  private async onRequestPersistence(): Promise<void> {
+    this.busy = true;
+    this.storageStatus = null;
+    try {
+      const granted = await requestPersistence();
+      await this.refreshStorage();
+      this.storageStatus = granted
+        ? { kind: "ok", text: "Storage is now persistent — your data won't be auto-evicted." }
+        : {
+            kind: "err",
+            text:
+              "The browser declined to make storage persistent. Try bookmarking or installing the app, then ask again — and keep a backup file.",
+          };
+    } catch (e) {
+      this.storageStatus = { kind: "err", text: errMsg(e) };
+    } finally {
+      this.busy = false;
+    }
   }
 
   private setTheme(theme: Theme): void {
@@ -260,6 +294,8 @@ export class SettingsPage extends LitElement {
         </div>
       </div>
 
+      ${this.renderStorageCard()}
+
       <div class="card">
         <h3>Backup file</h3>
         <p class="sub">
@@ -342,9 +378,68 @@ export class SettingsPage extends LitElement {
     `;
   }
 
+  private renderStorageCard() {
+    const s = this.storage;
+    if (s?.state === "unsupported") {
+      return html`
+        <div class="card">
+          <h3>Device storage</h3>
+          <p class="sub">
+            This browser doesn't support persistent storage. Your data is kept on this device
+            but could be cleared by the browser under low-disk conditions — keep a backup file.
+          </p>
+        </div>
+      `;
+    }
+    const persisted = s?.state === "persisted";
+    return html`
+      <div class="card">
+        <h3>Device storage</h3>
+        <p class="sub">
+          Your data lives in this browser. Without persistent storage the browser may evict it
+          automatically when disk runs low. Persisting opts out — only you can clear it then.
+        </p>
+        <p class="status ${persisted ? "ok" : "err"}">
+          ${s == null
+            ? "Checking…"
+            : persisted
+              ? "✓ Storage is persistent — protected from automatic eviction."
+              : "⚠ Storage is not persistent — data could be evicted automatically."}
+        </p>
+        ${s?.usage != null && s?.quota != null
+          ? html`<p class="muted">
+              Using ${formatBytes(s.usage)} of ${formatBytes(s.quota)} available.
+            </p>`
+          : ""}
+        ${persisted
+          ? ""
+          : html`<div class="btns" style="margin-top:0.6rem">
+              <button class="primary" @click=${this.onRequestPersistence} ?disabled=${this.busy}>
+                Make storage persistent
+              </button>
+            </div>`}
+        ${this.storageStatus
+          ? html`<p class="status ${this.storageStatus.kind}">${this.storageStatus.text}</p>`
+          : ""}
+      </div>
+    `;
+  }
+
   private get fileInput(): HTMLInputElement {
     return this.renderRoot.querySelector("#file") as HTMLInputElement;
   }
+}
+
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
 }
 
 function currentTheme(): Theme {

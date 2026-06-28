@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Finance Lite">
+  <!-- Full-bleed background so the icon is safe as a maskable PWA icon. -->
+  <rect width="512" height="512" fill="#2f7d4f"/>
+  <!-- Simple sprout: a stem with two leaves, centered in the maskable safe zone. -->
+  <g fill="none" stroke="#ffffff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 384 V224"/>
+    <path d="M256 264 C 200 264 168 232 168 176 C 224 176 256 208 256 264 Z" fill="#ffffff"/>
+    <path d="M256 232 C 312 232 344 200 344 144 C 288 144 256 176 256 232 Z" fill="#ffffff"/>
+  </g>
+  <!-- Coin accent to read as 'finance'. -->
+  <circle cx="256" cy="156" r="26" fill="#ffd34e" stroke="#2f7d4f" stroke-width="10"/>
+</svg>
