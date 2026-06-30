@@ -1,6 +1,8 @@
 import { LitElement, html, css } from "lit";
-import { customElement, property, state } from "lit/decorators.js";
+import { customElement, property, query, state } from "lit/decorators.js";
 import { controls } from "../styles/shared";
+import "./fertilizer-calc";
+import type { FertilizerCalc, FertilizerCalcResult } from "./fertilizer-calc";
 import {
   findOrCreateCrop,
   saveCycleWithCosts,
@@ -442,7 +444,14 @@ export class CycleEditor extends LitElement {
           <span></span>
         </div>
         ${this.rows.map((r) => this.renderCostRow(r))}
-        <button class="ghost add-cost" @click=${this.addRow}>+ Add cost</button>
+        <div class="add-cost" style="display:flex; gap:0.6rem">
+          <button class="ghost" @click=${this.addRow}>+ Add cost</button>
+          <button class="ghost" @click=${this.openFertCalc}>🧮 Fertilizer calc</button>
+        </div>
+        <pf-fertilizer-calc
+          .unitShort=${unitShort(this.fScaleUnit)}
+          @confirm=${this.onFertConfirm}
+        ></pf-fertilizer-calc>
 
         ${this.error ? html`<p class="err">${this.error}</p>` : ""}
 
@@ -559,6 +568,26 @@ export class CycleEditor extends LitElement {
       </div>
     `;
   }
+
+  @query("pf-fertilizer-calc") private fertCalc!: FertilizerCalc;
+
+  private openFertCalc = () => {
+    this.fertCalc.open();
+  };
+
+  private onFertConfirm = (e: CustomEvent<FertilizerCalcResult>) => {
+    const { label, amount } = e.detail;
+    this.rows = [
+      ...this.rows,
+      {
+        clientId: rowSeq++,
+        label,
+        category: "fertilizer",
+        basis: "perUnit",
+        amount: String(amount),
+      },
+    ];
+  };
 
   private addRow = () => {
     this.rows = [...this.rows, blankRow()];
