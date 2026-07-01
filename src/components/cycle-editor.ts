@@ -88,7 +88,7 @@ export class CycleEditor extends LitElement {
       .costs-head,
       .cost-row {
         display: grid;
-        grid-template-columns: 1.4fr 1fr 1fr auto;
+        grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1.5fr) auto;
         gap: 0.5rem;
         align-items: end;
       }
@@ -546,7 +546,7 @@ export class CycleEditor extends LitElement {
         </select>
         <div class="row" style="gap:0.35rem">
           <select
-            style="flex:0 0 5.4rem"
+            style="flex:0 0 4.8rem"
             @change=${(e: Event) => this.patchRow(r.clientId, { basis: val(e) as Basis })}
           >
             <option value="perCycle" ?selected=${r.basis === "perCycle"}>/cycle</option>
@@ -677,20 +677,23 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Add `days` to an ISO date string, returning a new ISO date ("" if invalid). */
+/** Add `days` to an ISO date string, returning a new ISO date ("" if invalid).
+ *  Uses UTC throughout so it round-trips with `daysBetween` regardless of the
+ *  local timezone (parsing local midnight but formatting via toISOString/UTC
+ *  otherwise shifts the date by a day in non-UTC zones). */
 function addDays(iso: string, days: number): string {
   if (!iso || !Number.isFinite(days)) return "";
-  const d = new Date(iso + "T00:00:00");
+  const d = new Date(iso + "T00:00:00Z");
   if (Number.isNaN(d.getTime())) return "";
-  d.setDate(d.getDate() + days);
+  d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
 
 /** Whole days from `from` to `to`; null if either date is missing/invalid. */
 function daysBetween(from: string, to: string): number | null {
   if (!from || !to) return null;
-  const a = new Date(from + "T00:00:00").getTime();
-  const b = new Date(to + "T00:00:00").getTime();
+  const a = new Date(from + "T00:00:00Z").getTime();
+  const b = new Date(to + "T00:00:00Z").getTime();
   if (Number.isNaN(a) || Number.isNaN(b)) return null;
   return Math.round((b - a) / 86_400_000);
 }

@@ -1,6 +1,6 @@
 {
   "name": "finance-lite",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "description": "Local-first crop-farm financial planner (Lit + Dexie): cost tracking, break-even, seasonal pricing",
